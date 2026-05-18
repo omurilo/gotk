@@ -1,0 +1,105 @@
+version: 2
+
+project_name: gotk
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: gotk
+    main: .
+    binary: gotk
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: gotk
+    builds: [gotk]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: "New features"
+      regexp: "^feat"
+      order: 0
+    - title: "Bug fixes"
+      regexp: "^fix"
+      order: 1
+    - title: "Performance"
+      regexp: "^perf"
+      order: 2
+    - title: "Other"
+      order: 999
+
+release:
+  github:
+    owner: murilo-alves
+    name: gotk
+  name_template: "v{{ .Version }}"
+  header: |
+    ## gotk v{{ .Version }}
+
+    Go Token Killer — compresses AI agent command output in real-time.
+
+    ### Installation
+
+    ```sh
+    # Homebrew
+    brew install murilo-alves/tap/gotk
+
+    # go install
+    go install github.com/murilo-alves/gotk@v{{ .Version }}
+    ```
+  footer: |
+    **Full Changelog**: https://github.com/murilo-alves/gotk/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+brews:
+  - name: gotk
+    repository:
+      owner: murilo-alves
+      name: homebrew-tap
+    directory: Formula
+    homepage: "https://github.com/murilo-alves/gotk"
+    description: "Go Token Killer — compresses AI agent command output to reduce token usage"
+    license: "MIT"
+    install: |
+      bin.install "gotk"
+    test: |
+      system "#{bin}/gotk", "--version"
