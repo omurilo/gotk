@@ -62,11 +62,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            asset: gotk_linux_amd64.tar.gz
+            asset: gotk_*_linux_amd64.tar.gz
           - os: macos-latest
-            asset: gotk_darwin_arm64.tar.gz
+            asset: gotk_*_darwin_arm64.tar.gz
           - os: windows-latest
-            asset: gotk_windows_amd64.zip
+            asset: gotk_*_windows_amd64.zip
 
     steps:
       - name: Download release asset
