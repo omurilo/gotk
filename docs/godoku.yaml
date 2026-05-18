@@ -1,6 +1,6 @@
 title: gotk — Go Token Killer
 description: Proxy CLI that compresses AI agent command output in real-time, reducing token usage by 60–90%.
-url: https://omurilo.github.io/gotk
+url: https://gotk.omurilo.dev
 language: en
 redirect: /docs/getting-started
 
