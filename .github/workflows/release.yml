@@ -77,11 +77,11 @@ jobs:
 
       - name: Extract (Unix)
         if: runner.os != 'Windows'
-        run: tar -xzf "${{ matrix.asset }}"
+        run: tar -xzf ${{ matrix.asset }}
 
       - name: Extract (Windows)
         if: runner.os == 'Windows'
-        run: Expand-Archive -Path "${{ matrix.asset }}" -DestinationPath .
+        run: Get-Item "${{ matrix.asset }}" | ForEach-Object { Expand-Archive -Path $_.FullName -DestinationPath . }
         shell: pwsh
 
       - name: Version check (Unix)
