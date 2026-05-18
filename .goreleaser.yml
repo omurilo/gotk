@@ -31,11 +31,11 @@ builds:
 
 archives:
   - id: gotk
-    builds: [gotk]
+    ids: [gotk]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
     files:
       - README.md
       - LICENSE
@@ -90,11 +90,12 @@ release:
   footer: |
     **Full Changelog**: https://github.com/murilo-alves/gotk/compare/{{ .PreviousTag }}...{{ .Tag }}
 
-brews:
+homebrew_casks:
   - name: gotk
     repository:
       owner: murilo-alves
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula
     homepage: "https://github.com/murilo-alves/gotk"
     description: "Go Token Killer — compresses AI agent command output to reduce token usage"
