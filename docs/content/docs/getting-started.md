@@ -81,7 +81,7 @@ Economia média:      84.7%
 
 ## Next steps
 
-- [Installation options](/docs/installation) — Homebrew, binary download, build from source
+- [Installation options](/docs/installation) — binary download, go install, build from source
 - [Agents](/docs/agents/claude-code) — per-agent setup guides
 - [Configuration](/docs/configuration) — tune tee mode, stack frames, excluded commands
 - [Custom filters](/docs/custom-filters) — write project-specific TOML rules

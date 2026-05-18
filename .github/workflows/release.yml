@@ -51,12 +51,7 @@ jobs:
           version: latest
           args: release --clean
         env:
-          # GITHUB_TOKEN is automatically provided by GitHub Actions.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Optional: set HOMEBREW_TAP_TOKEN to a PAT with write access to
-          # the omurilo/homebrew-tap repository so GoReleaser can push
-          # the updated Formula automatically.
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
   # Smoke-test the released binaries by downloading and running them.
   smoke:

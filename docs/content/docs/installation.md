@@ -1,18 +1,10 @@
 ---
 title: "Installation"
-description: "All ways to install gotk: Homebrew, go install, pre-built binaries, and building from source."
+description: "All ways to install gotk: go install, pre-built binaries, and building from source."
 order: 2
 ---
 
 # Installation
-
-## Homebrew (macOS / Linux)
-
-```bash
-brew install omurilo/tap/gotk
-```
-
-Upgrades follow the normal `brew upgrade` workflow.
 
 ## go install
 
@@ -83,10 +75,6 @@ go build -ldflags "-s -w -X main.version=$VERSION" -o gotk .
 ## Uninstall
 
 ```bash
-# Homebrew
-brew uninstall gotk
-
-# Manual
 sudo rm /usr/local/bin/gotk
 rm -rf ~/.config/gotk
 rm -rf ~/.local/share/gotk

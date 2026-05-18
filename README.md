@@ -35,11 +35,6 @@ AI coding agents like Claude Code, Cursor, and Gemini spend most of their contex
 
 ## Installation
 
-### Homebrew (macOS / Linux)
-```sh
-brew install omurilo/tap/gotk
-```
-
 ### go install
 ```sh
 go install github.com/omurilo/gotk@latest
