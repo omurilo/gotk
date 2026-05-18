@@ -37,17 +37,17 @@ AI coding agents like Claude Code, Cursor, and Gemini spend most of their contex
 
 ### Homebrew (macOS / Linux)
 ```sh
-brew install murilo-alves/tap/gotk
+brew install omurilo/tap/gotk
 ```
 
 ### go install
 ```sh
-go install github.com/murilo-alves/gotk@latest
+go install github.com/omurilo/gotk@latest
 ```
 
 ### Download binary
 
-Download the latest release for your platform from the [Releases page](https://github.com/murilo-alves/gotk/releases).
+Download the latest release for your platform from the [Releases page](https://github.com/omurilo/gotk/releases).
 
 | OS | Architecture | File |
 |---|---|---|
@@ -61,7 +61,7 @@ Verify the checksum with the provided `checksums.txt`.
 
 ### Build from source
 ```sh
-git clone https://github.com/murilo-alves/gotk
+git clone https://github.com/omurilo/gotk
 cd gotk
 go build -o gotk .
 sudo mv gotk /usr/local/bin/

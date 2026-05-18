@@ -13,15 +13,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/murilo-alves/gotk/internal/config"
-	"github.com/murilo-alves/gotk/internal/filter"
-	"github.com/murilo-alves/gotk/internal/format"
-	"github.com/murilo-alves/gotk/internal/logger"
-	"github.com/murilo-alves/gotk/internal/registry"
-	"github.com/murilo-alves/gotk/internal/state"
-	"github.com/murilo-alves/gotk/internal/tokens"
-	"github.com/murilo-alves/gotk/internal/tomlfilter"
-	"github.com/murilo-alves/gotk/internal/tracker"
+	"github.com/omurilo/gotk/internal/config"
+	"github.com/omurilo/gotk/internal/filter"
+	"github.com/omurilo/gotk/internal/format"
+	"github.com/omurilo/gotk/internal/logger"
+	"github.com/omurilo/gotk/internal/registry"
+	"github.com/omurilo/gotk/internal/state"
+	"github.com/omurilo/gotk/internal/tokens"
+	"github.com/omurilo/gotk/internal/tomlfilter"
+	"github.com/omurilo/gotk/internal/tracker"
 )
 
 // securityKeywords cause the filter to be disabled entirely.
@@ -281,9 +281,9 @@ type compiledRule struct {
 // hotRules holds project filter rules and reloads them from disk when the
 // source file changes (polled every 250 ms).
 type hotRules struct {
-	mu      sync.RWMutex
-	rules   []compiledRule
-	bypass  bool
+	mu     sync.RWMutex
+	rules  []compiledRule
+	bypass bool
 }
 
 func newHotRules(pf *config.ProjectFilters, bypass bool) *hotRules {
@@ -377,8 +377,8 @@ type hookInput struct {
 	ToolName       string         `json:"tool_name"`
 	ToolInput      map[string]any `json:"tool_input"`
 	// Cursor uses camelCase
-	ToolName2 string         `json:"toolName"`
-	ToolArgs  string         `json:"toolArgs"`
+	ToolName2 string `json:"toolName"`
+	ToolArgs  string `json:"toolArgs"`
 }
 
 // RunHook reads a PreToolUse JSON from stdin (Claude Code, Cursor, or Gemini)
@@ -467,10 +467,10 @@ func RunHook(agent string) error {
 		// hookSpecificOutput protocol: rewrite + auto-allow
 		out, _ := json.Marshal(map[string]any{
 			"hookSpecificOutput": map[string]any{
-				"hookEventName":              "PreToolUse",
-				"permissionDecision":         "allow",
-				"permissionDecisionReason":   "gotk auto-rewrite",
-				"updatedInput":               map[string]string{"command": rewritten},
+				"hookEventName":            "PreToolUse",
+				"permissionDecision":       "allow",
+				"permissionDecisionReason": "gotk auto-rewrite",
+				"updatedInput":             map[string]string{"command": rewritten},
 			},
 		})
 		fmt.Println(string(out))

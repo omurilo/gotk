@@ -70,7 +70,7 @@ changelog:
 
 release:
   github:
-    owner: murilo-alves
+    owner: omurilo
     name: gotk
   name_template: "v{{ .Version }}"
   header: |
@@ -82,22 +82,22 @@ release:
 
     ```sh
     # Homebrew
-    brew install murilo-alves/tap/gotk
+    brew install omurilo/tap/gotk
 
     # go install
-    go install github.com/murilo-alves/gotk@v{{ .Version }}
+    go install github.com/omurilo/gotk@v{{ .Version }}
     ```
   footer: |
-    **Full Changelog**: https://github.com/murilo-alves/gotk/compare/{{ .PreviousTag }}...{{ .Tag }}
+    **Full Changelog**: https://github.com/omurilo/gotk/compare/{{ .PreviousTag }}...{{ .Tag }}
 
 homebrew_casks:
   - name: gotk
     repository:
-      owner: murilo-alves
+      owner: omurilo
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula
-    homepage: "https://github.com/murilo-alves/gotk"
+    homepage: "https://github.com/omurilo/gotk"
     description: "Go Token Killer — compresses AI agent command output to reduce token usage"
     license: "MIT"
     install: |

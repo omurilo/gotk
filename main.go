@@ -5,10 +5,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/murilo-alves/gotk/internal/config"
-	"github.com/murilo-alves/gotk/internal/proxy"
-	"github.com/murilo-alves/gotk/internal/registry"
-	"github.com/murilo-alves/gotk/internal/tracker"
+	"github.com/omurilo/gotk/internal/config"
+	"github.com/omurilo/gotk/internal/proxy"
+	"github.com/omurilo/gotk/internal/registry"
+	"github.com/omurilo/gotk/internal/tracker"
 )
 
 const version = "0.1.0"

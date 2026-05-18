@@ -1,4 +1,4 @@
-module github.com/murilo-alves/gotk
+module github.com/omurilo/gotk
 
 go 1.22
 
