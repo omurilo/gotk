@@ -148,20 +148,22 @@ func Run(cmd string, args []string) (exitCode int, err error) {
 			continue
 		}
 
-		if !fmtDetected {
-			k := format.Detect(ev.text)
-			fmtParser = format.NewParser(k)
-			fmtDetected = true
-			if k != format.KindPlain {
-				fmt.Fprintf(os.Stderr, "[gotk] formato %s detectado — saída comprimida\n", k)
+		if !bypass {
+			if !fmtDetected {
+				k := format.Detect(ev.text)
+				fmtParser = format.NewParser(k)
+				fmtDetected = true
+				if k != format.KindPlain {
+					fmt.Fprintf(os.Stderr, "[gotk] formato %s detectado — saída comprimida\n", k)
+				}
 			}
-		}
 
-		if fmtParser.Kind() != format.KindPlain {
-			for _, out := range fmtParser.Process(ev.text) {
-				emit(out, ev.isErr)
+			if fmtParser.Kind() != format.KindPlain {
+				for _, out := range fmtParser.Process(ev.text) {
+					emit(out, ev.isErr)
+				}
+				continue
 			}
-			continue
 		}
 
 		// Plain pipeline: project rules → Filter → Truncator
