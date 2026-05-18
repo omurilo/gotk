@@ -17,8 +17,10 @@ import (
 	"github.com/murilo-alves/gotk/internal/filter"
 	"github.com/murilo-alves/gotk/internal/format"
 	"github.com/murilo-alves/gotk/internal/logger"
+	"github.com/murilo-alves/gotk/internal/registry"
 	"github.com/murilo-alves/gotk/internal/state"
 	"github.com/murilo-alves/gotk/internal/tokens"
+	"github.com/murilo-alves/gotk/internal/tomlfilter"
 	"github.com/murilo-alves/gotk/internal/tracker"
 )
 
@@ -28,9 +30,6 @@ var securityKeywords = []string{
 	"snyk", "trivy", "cve", "scan", "owasp",
 	"grype", "semgrep", "gosec", "bandit",
 }
-
-// shellMetachars prevent safe wrapping via the hook.
-var shellMetachars = []string{"|", ">", "<", "&&", "||", ";", "`", "$("}
 
 type lineEvent struct {
 	text  string
@@ -74,7 +73,19 @@ func Run(cmd string, args []string) (exitCode int, err error) {
 	filterEngine := filter.New(cmd, bypass)
 	truncEngine := filter.NewTruncator(cfg.Filter.MaxStackFrames, cfg.Filter.MaxGrepResults)
 
-	// Hot-reloadable project rules.
+	// TOML filter registry (RTK-compatible .gotk/filters.toml / .rtk/filters.toml).
+	// When a TOML filter matches the command, all output is buffered and processed
+	// in bulk after the command finishes (required for tail_lines / match_output).
+	tomlReg := tomlfilter.LoadAll()
+	// Match against full command string (cmd + args) to match RTK's behaviour.
+	fullCmd := cmd
+	if len(args) > 0 {
+		fullCmd = cmd + " " + strings.Join(args, " ")
+	}
+	useTomlFilter := !bypass && tomlReg.HasMatch(fullCmd)
+	var tomlBuf []string
+
+	// Hot-reloadable project rules (legacy regex JSON rules, still supported).
 	hr := newHotRules(config.LoadProjectFilters(), bypass)
 	stopWatcher := hr.startWatcher(".gotk/filters.json")
 	defer close(stopWatcher)
@@ -131,6 +142,12 @@ func Run(cmd string, args []string) (exitCode int, err error) {
 			tee.Write(ev.text)
 		}
 
+		// TOML filter: buffer all lines, emit after command exits.
+		if useTomlFilter {
+			tomlBuf = append(tomlBuf, ev.text)
+			continue
+		}
+
 		if !fmtDetected {
 			k := format.Detect(ev.text)
 			fmtParser = format.NewParser(k)
@@ -158,6 +175,15 @@ func Run(cmd string, args []string) (exitCode int, err error) {
 		for _, filtered := range filterEngine.Process(line) {
 			for _, truncated := range truncEngine.Process(filtered) {
 				emit(truncated, ev.isErr)
+			}
+		}
+	}
+
+	// Flush TOML-buffered output through the filter pipeline.
+	if useTomlFilter {
+		if filtered, ok := tomlReg.Apply(fullCmd, tomlBuf); ok {
+			for _, l := range filtered {
+				emit(l, false)
 			}
 		}
 	}
@@ -350,11 +376,19 @@ type hookInput struct {
 	TranscriptPath string         `json:"transcript_path"`
 	ToolName       string         `json:"tool_name"`
 	ToolInput      map[string]any `json:"tool_input"`
+	// Cursor uses camelCase
+	ToolName2 string         `json:"toolName"`
+	ToolArgs  string         `json:"toolArgs"`
 }
 
-// RunHook reads a Claude Code PreToolUse JSON from stdin and rewrites the
-// Bash command to be proxied through gotk when appropriate.
-func RunHook() error {
+// RunHook reads a PreToolUse JSON from stdin (Claude Code, Cursor, or Gemini)
+// and rewrites the Bash command to be proxied through gotk when appropriate.
+// agent must be one of: "claude", "cursor", "gemini", "" (defaults to "claude").
+func RunHook(agent string) error {
+	if agent == "" {
+		agent = "claude"
+	}
+
 	raw, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return fmt.Errorf("read stdin: %w", err)
@@ -364,46 +398,82 @@ func RunHook() error {
 	if err := json.Unmarshal(raw, &input); err != nil {
 		return nil
 	}
-	if !strings.EqualFold(input.ToolName, "Bash") {
-		return nil
+
+	// Detect command based on agent/format
+	var cmdStr string
+	switch agent {
+	case "cursor":
+		// Cursor sends camelCase toolName + toolArgs (JSON-encoded string)
+		tName := input.ToolName2
+		if tName == "" {
+			tName = input.ToolName
+		}
+		if !strings.EqualFold(tName, "bash") && !strings.EqualFold(tName, "Shell") {
+			return nil
+		}
+		if input.ToolArgs != "" {
+			var args map[string]any
+			if json.Unmarshal([]byte(input.ToolArgs), &args) == nil {
+				if c, ok := args["command"].(string); ok {
+					cmdStr = c
+				}
+			}
+		}
+		if cmdStr == "" {
+			if c, ok := input.ToolInput["command"].(string); ok {
+				cmdStr = c
+			}
+		}
+	default: // claude, gemini
+		if !strings.EqualFold(input.ToolName, "Bash") &&
+			!strings.EqualFold(input.ToolName, "run_shell_command") {
+			return nil
+		}
+		if c, ok := input.ToolInput["command"].(string); ok {
+			cmdStr = c
+		}
 	}
 
-	cmdVal, ok := input.ToolInput["command"]
-	if !ok {
-		return nil
-	}
-	cmdStr, ok := cmdVal.(string)
-	if !ok || cmdStr == "" {
+	if cmdStr == "" {
 		return nil
 	}
 	if strings.HasPrefix(cmdStr, "gotk ") {
 		return nil
 	}
-	for _, meta := range shellMetachars {
-		if strings.Contains(cmdStr, meta) {
-			return nil
-		}
-	}
-	lower := strings.ToLower(cmdStr)
-	for _, kw := range securityKeywords {
-		if strings.Contains(lower, kw) {
-			return nil
-		}
-	}
 
+	// Check excludes from config
 	cfg := config.Load()
-	firstWord := strings.Fields(cmdStr)[0]
-	for _, excl := range cfg.Hooks.ExcludeCommands {
-		if strings.EqualFold(firstWord, excl) {
-			return nil
+	fields := strings.Fields(cmdStr)
+	if len(fields) > 0 {
+		for _, excl := range cfg.Hooks.ExcludeCommands {
+			if strings.EqualFold(fields[0], excl) {
+				return nil
+			}
 		}
 	}
 
-	input.ToolInput["command"] = "gotk " + cmdStr
-	out, err := json.Marshal(input.ToolInput)
-	if err != nil {
+	rewritten, verdict := registry.Rewrite(cmdStr)
+	if verdict != registry.VerdictAllow {
 		return nil
 	}
-	fmt.Println(string(out))
+
+	// Output rewrite in agent-specific JSON format
+	switch agent {
+	case "cursor":
+		// Cursor expects {"command": "<rewritten>"} on stdout
+		out, _ := json.Marshal(map[string]string{"command": rewritten})
+		fmt.Println(string(out))
+	default: // claude code
+		// hookSpecificOutput protocol: rewrite + auto-allow
+		out, _ := json.Marshal(map[string]any{
+			"hookSpecificOutput": map[string]any{
+				"hookEventName":              "PreToolUse",
+				"permissionDecision":         "allow",
+				"permissionDecisionReason":   "gotk auto-rewrite",
+				"updatedInput":               map[string]string{"command": rewritten},
+			},
+		})
+		fmt.Println(string(out))
+	}
 	return nil
 }

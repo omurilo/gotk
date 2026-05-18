@@ -88,6 +88,8 @@ func Load() Config {
 
 // LoadProjectFilters reads .gotk/filters.json from the current directory.
 // Returns nil if the file does not exist or is not trusted.
+// NOTE: prefer TOML filters (.gotk/filters.toml) — this JSON loader is kept
+// for backward compatibility only.
 func LoadProjectFilters() *ProjectFilters {
 	path := ".gotk/filters.json"
 	data, err := os.ReadFile(path)
@@ -106,6 +108,36 @@ func LoadProjectFilters() *ProjectFilters {
 		return nil
 	}
 	return &pf
+}
+
+// TrustToml records the SHA-256 of a TOML filter file so it is auto-loaded.
+// path must be a .toml filter file (e.g. ".gotk/filters.toml").
+func TrustToml(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("ler %s: %w", path, err)
+	}
+
+	hash := sha256Hash(data)
+	trustedPath := trustedFilePath()
+	if err := os.MkdirAll(filepath.Dir(trustedPath), 0755); err != nil {
+		return err
+	}
+
+	trusted := make(map[string]string)
+	if existing, err := os.ReadFile(trustedPath); err == nil {
+		_ = json.Unmarshal(existing, &trusted)
+	}
+
+	abs, _ := filepath.Abs(path)
+	trusted[abs] = hash
+	out, _ := json.MarshalIndent(trusted, "", "  ")
+
+	if err := os.WriteFile(trustedPath, out, 0644); err != nil {
+		return err
+	}
+	fmt.Printf("[gotk] confiança registrada para %s (hash: %s...)\n", abs, hash[:24])
+	return nil
 }
 
 // Trust computes the SHA-256 of .gotk/filters.json (excluding the trust_hash

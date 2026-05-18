@@ -7,6 +7,7 @@ import (
 
 	"github.com/murilo-alves/gotk/internal/config"
 	"github.com/murilo-alves/gotk/internal/proxy"
+	"github.com/murilo-alves/gotk/internal/registry"
 	"github.com/murilo-alves/gotk/internal/tracker"
 )
 
@@ -26,19 +27,47 @@ func main() {
 		printHelp()
 
 	case "hook":
-		if err := proxy.RunHook(); err != nil {
+		// Usage: gotk hook [--agent <name>]
+		// agent defaults to "claude"
+		agent := flagValue(os.Args[2:], "--agent", "claude")
+		if err := proxy.RunHook(agent); err != nil {
 			fmt.Fprintf(os.Stderr, "gotk hook: %v\n", err)
 			os.Exit(1)
 		}
 
 	case "init":
-		if err := proxy.Install(); err != nil {
+		// Usage: gotk init [--agent <name>] [--uninstall] [--show] [--dry-run]
+		opts := proxy.InstallOptions{
+			Agent:     flagValue(os.Args[2:], "--agent", "claude"),
+			Uninstall: hasFlag(os.Args[2:], "--uninstall"),
+			Show:      hasFlag(os.Args[2:], "--show"),
+			DryRun:    hasFlag(os.Args[2:], "--dry-run"),
+		}
+		if err := proxy.Install(opts); err != nil {
 			fmt.Fprintf(os.Stderr, "gotk init: %v\n", err)
 			os.Exit(1)
 		}
 
+	case "rewrite":
+		// Usage: gotk rewrite <command...>
+		// Exits 0 (allow+rewrite), 1 (passthrough), or 2 (deny).
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: gotk rewrite <command>")
+			os.Exit(1)
+		}
+		cmd := strings.Join(os.Args[2:], " ")
+		rewritten, verdict := registry.Rewrite(cmd)
+		fmt.Println(rewritten)
+		os.Exit(int(verdict))
+
 	case "trust":
-		if err := config.Trust(); err != nil {
+		// Accept optional path: gotk trust [file]
+		// Defaults: .gotk/filters.toml if present, else .gotk/filters.json
+		path := ""
+		if len(os.Args) >= 3 {
+			path = os.Args[2]
+		}
+		if err := runTrust(path); err != nil {
 			fmt.Fprintf(os.Stderr, "gotk trust: %v\n", err)
 			os.Exit(1)
 		}
@@ -139,6 +168,45 @@ func runStats(args []string) error {
 	return nil
 }
 
+// runTrust trusts a filter file. Defaults to .gotk/filters.toml if it exists,
+// then falls back to .gotk/filters.json.
+func runTrust(path string) error {
+	if path == "" {
+		if _, err := os.Stat(".gotk/filters.toml"); err == nil {
+			path = ".gotk/filters.toml"
+		} else {
+			path = ".gotk/filters.json"
+		}
+	}
+	if strings.HasSuffix(path, ".toml") {
+		return config.TrustToml(path)
+	}
+	return config.Trust()
+}
+
+// ---------- flag helpers ----------
+
+func flagValue(args []string, flag, def string) string {
+	for i, a := range args {
+		if a == flag && i+1 < len(args) {
+			return args[i+1]
+		}
+		if v, ok := strings.CutPrefix(a, flag+"="); ok {
+			return v
+		}
+	}
+	return def
+}
+
+func hasFlag(args []string, flag string) bool {
+	for _, a := range args {
+		if a == flag {
+			return true
+		}
+	}
+	return false
+}
+
 // ---------- formatting helpers ----------
 
 func fmtInt(n int) string {
@@ -172,17 +240,48 @@ func printHelp() {
 	fmt.Printf(`gotk v%s — Go Token Killer
 
 Proxy que comprime saída de comandos em tempo real, reduzindo uso de tokens em
-agentes de IA (Claude Code, Cursor, etc.).
+agentes de IA (Claude Code, Cursor, Gemini, etc.).
 
 USO:
-  gotk <comando> [args...]   Executa o comando com filtro de output
-  gotk stats                 Exibe histórico de tokens economizados
-  gotk stats --clear         Limpa o histórico
-  gotk hook                  Modo hook: reescreve comandos Bash (JSON via stdin)
-  gotk init                  Instala o hook global no Claude Code
-  gotk trust                 Confia em .gotk/filters.json no diretório atual
-  gotk --version             Imprime versão
-  gotk --help                Imprime esta ajuda
+  gotk <comando> [args...]            Executa o comando com filtro de output
+  gotk stats                          Exibe histórico de tokens economizados
+  gotk stats --clear                  Limpa o histórico
+  gotk rewrite <comando>              Reescreve comando (saída + exit 0/1/2)
+  gotk hook [--agent <agente>]        Hook PreToolUse: reescreve JSON via stdin
+  gotk init [--agent <agente>]        Instala hook para agente (padrão: claude)
+  gotk init --show                    Exibe status de instalação
+  gotk init --uninstall               Remove hook do agente
+  gotk init --dry-run                 Simula instalação sem gravar
+  gotk trust [arquivo]                Confia em arquivo de filtros TOML/JSON
+  gotk --version                      Imprime versão
+  gotk --help                         Imprime esta ajuda
+
+FILTROS CUSTOMIZADOS (compatíveis com RTK):
+  .gotk/filters.toml                  Filtros do projeto (gotk)
+  .rtk/filters.toml                   Filtros RTK (compatibilidade direta)
+  ~/.config/gotk/filters.toml         Filtros globais do usuário
+
+  Exemplo de filtro:
+    [filters.my-tool]
+    description = "Compacta saída do my-tool"
+    match_command = "^my-tool\\b"
+    strip_ansi = true
+    strip_lines_matching = ["^\\s*$", "^Downloading"]
+    max_lines = 30
+    on_empty = "my-tool: ok"
+
+AGENTES SUPORTADOS (--agent):
+  claude    Claude Code — ~/.claude/settings.json (padrão)
+  cursor    Cursor — ~/.cursor/hooks.json
+  gemini    Gemini CLI — ~/.gemini/hooks/ + settings.json
+  windsurf  Windsurf Cascade — .windsurfrules (projeto)
+  cline     Cline / Roo Code — .clinerules (projeto)
+  all       Instala em todos os agentes acima
+
+EXIT CODES (gotk rewrite):
+  0   VerdictAllow       — reescrito como "gotk <cmd>"
+  1   VerdictPassthrough — sem equivalente, passa sem alteração
+  2   VerdictDeny        — comando destrutivo, nega execução
 
 VARIÁVEIS DE AMBIENTE:
   GOTK_LOG_DIR    Diretório para gotk_raw.log (padrão: diretório atual)
@@ -200,5 +299,8 @@ EXEMPLOS:
   gotk pytest -v
   gotk git log --oneline -50
   gotk npm install
+  gotk init --agent cursor
+  gotk init --agent gemini
+  gotk init --show
 `, version)
 }

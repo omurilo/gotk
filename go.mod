@@ -3,6 +3,7 @@ module github.com/murilo-alves/gotk
 go 1.22
 
 require (
+	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/pkoukk/tiktoken-go v0.1.8 // indirect
