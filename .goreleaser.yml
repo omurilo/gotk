@@ -90,7 +90,7 @@ release:
   footer: |
     **Full Changelog**: https://github.com/omurilo/gotk/compare/{{ .PreviousTag }}...{{ .Tag }}
 
-homebrew_casks:
+brews:
   - name: gotk
     repository:
       owner: omurilo

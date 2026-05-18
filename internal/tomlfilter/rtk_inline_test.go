@@ -88,11 +88,18 @@ func TestRTKInline(t *testing.T) {
 func splitLines(s string) []string {
 	// TOML multi-line strings start with a trimmed first newline; single-line
 	// strings have no trailing newline.  Normalise by trimming both ends.
-	s = strings.TrimRight(s, "\n")
+	// Also strip \r so tests pass on Windows where git may check out TOML
+	// files with CRLF line endings, causing the embedded multi-line strings
+	// to contain \r\n instead of \n.
+	s = strings.TrimRight(s, "\r\n")
 	if s == "" {
 		return []string{}
 	}
-	return strings.Split(s, "\n")
+	lines := strings.Split(s, "\n")
+	for i, l := range lines {
+		lines[i] = strings.TrimRight(l, "\r")
+	}
+	return lines
 }
 
 // linesEqual compares two line slices, treating nil and empty as equal.

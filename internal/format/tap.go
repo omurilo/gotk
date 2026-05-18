@@ -50,7 +50,7 @@ func (p *tapParser) Process(line string) []string {
 
 	// Plan line: 1..N
 	if m := tapPlan.FindStringSubmatch(trimmed); m != nil {
-		fmt.Sscanf(m[1], "%d", &p.total)
+		_, _ = fmt.Sscanf(m[1], "%d", &p.total)
 		return nil
 	}
 
